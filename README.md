@@ -4,7 +4,7 @@
 
 ## 下载
 
-在 [GitHub Releases](https://github.com/wizardlouis/ServerResourceMonitor/releases) 下载 v1.0.0：
+在 [GitHub Releases](https://github.com/wizardlouis/ServerResourceMonitor/releases) 下载 v1.0.1：
 
 | 系统 | 下载 |
 |---|---|
@@ -13,7 +13,7 @@
 | Windows 10/11 · x64 | win-x64.exe |
 | Ubuntu 24.04 / 现代 Linux · x64 | linux-x64.AppImage 或 deb |
 
-文件名前缀为 ServerResourceMonitor-1.0.0-。应用未进行商业代码签名或 Apple 公证。Linux AppImage 可能需要 FUSE 兼容组件，deb 适用于 Debian/Ubuntu 系列。暂不提供 Windows/Linux ARM 或 32 位安装包。
+文件名前缀为 ServerResourceMonitor-1.0.1-。应用未进行商业代码签名或 Apple 公证。Linux AppImage 可能需要 FUSE 兼容组件，deb 适用于 Debian/Ubuntu 系列。暂不提供 Windows/Linux ARM 或 32 位安装包。
 
 ## 使用
 

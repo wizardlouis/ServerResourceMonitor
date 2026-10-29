@@ -7,6 +7,7 @@ const {collect} = require('./collector.cjs');
 const smoke = process.argv.includes('--smoke-test');
 const packageCheck = process.argv.includes('--package-check');
 const testing = smoke || packageCheck;
+if (testing) app.disableHardwareAcceleration();
 let store, window, timer, paused = false, stopped = false;
 const records = new Map(), running = new Map();
 function snapshot() {
@@ -72,7 +73,7 @@ else app.whenReady().then(async () => {
       if (!fs.existsSync(collectorPath)) throw Error('Packaged collector missing');
       let ready = false;
       for (let i = 0; i < 100; i++) {
-        ready = await window.webContents.executeJavaScript("document.getElementById('version').textContent === 'v1.0.0' && typeof require === 'undefined'");
+        ready = await window.webContents.executeJavaScript("document.getElementById('version').textContent === 'v1.0.1' && typeof require === 'undefined'");
         if (ready) break;
         await new Promise(resolve => setTimeout(resolve, 50));
       }

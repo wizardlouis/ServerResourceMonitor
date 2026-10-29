@@ -1,6 +1,6 @@
 {
   "name": "server-resource-monitor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cross-platform SSH server resource monitor",
   "author": "wizardlouis",
   "private": true,

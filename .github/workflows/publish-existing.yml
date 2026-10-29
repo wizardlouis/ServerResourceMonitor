@@ -8,7 +8,7 @@ on:
       tag:
         description: 'Source version tag'
         required: true
-        default: 'v1.0.0'
+        default: 'v1.0.1'
 permissions:
   actions: read
   contents: write

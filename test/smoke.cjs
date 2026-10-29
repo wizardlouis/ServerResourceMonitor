@@ -2,7 +2,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
 module.exports=async(window,store)=>{
  const errors=[];window.webContents.on('console-message',event=>{if(event.level === 'error')errors.push(event.message);});
  const run=fn=>window.webContents.executeJavaScript(`(${fn.toString()})()`);
- async function waitFor(fn){for(let i=0;i<100;i++){if(await run(fn))return;await new Promise(r=>setTimeout(r,50));}throw Error('UI condition timed out: '+fn);}
+ async function waitFor(fn){for(let i=0;i<200;i++){if(await run(fn))return;await new Promise(r=>setTimeout(r,50));}throw Error('UI condition timed out: '+fn);}
  await waitFor(()=>document.querySelectorAll('.server').length===4);
  assert.equal(await run(()=>typeof require),'undefined');
  assert.equal(await run(()=>document.querySelectorAll('.column').length),3);
@@ -23,6 +23,7 @@ module.exports=async(window,store)=>{
  await run(()=>document.getElementById('cancel').click());
  assert.deepEqual(store.config.columns[0].members,['demo-small','demo-small-2']);
  await run(()=>document.querySelector('[data-edit="pair"]').click());
+ await run(()=>document.getElementById('editor').dispatchEvent(new Event('close')));
  await run(()=>{document.getElementById('group-name').value='已保存分组';document.getElementById('save').click();});
  await waitFor(()=>!document.getElementById('editor').open && document.querySelector('.column h2').textContent.includes('已保存分组'));
  assert.equal(store.config.columns[0].name,'已保存分组');

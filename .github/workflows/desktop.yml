@@ -98,6 +98,6 @@ jobs:
           set -euo pipefail
           cd release-assets/release
           sha256sum *.dmg *.zip *.exe *.AppImage *.deb > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --title "v1.0.0 — 跨平台桌面版" --notes-file ../../RELEASE_NOTES_1.0.md
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --title "v1.0.1 — 跨平台桌面版" --notes-file ../../RELEASE_NOTES_1.0.md
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" *.dmg *.zip *.exe *.AppImage *.deb SHA256SUMS.txt
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

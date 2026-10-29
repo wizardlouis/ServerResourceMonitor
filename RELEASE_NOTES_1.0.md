@@ -1,6 +1,6 @@
-# v1.0.0 跨平台桌面版
+# v1.0.1 跨平台桌面版
 
-基于 v0.6.0 的监控功能推出统一的跨平台桌面客户端。原 SwiftUI 客户端源码和 v0.6.0 下载仍保留。
+基于 v0.6.0 的监控功能推出统一的跨平台桌面客户端。原 SwiftUI 客户端源码和 v0.6.0 下载仍保留。本次为 1.0 系列首个发布包，包含验证阶段发现的分组窗口快速重新打开修复。
 
 ## 下载选择
 
@@ -11,7 +11,7 @@
 | Windows 10 / 11 | x64 | win-x64.exe |
 | Ubuntu 24.04、兼容的现代 Linux 桌面 | x64 | linux-x64.AppImage / deb |
 
-完整文件名以 ServerResourceMonitor-1.0.0- 开头。Windows ARM、Linux ARM、32 位系统、移动系统不在此次发布范围。
+完整文件名以 ServerResourceMonitor-1.0.1- 开头。Windows ARM、Linux ARM、32 位系统、移动系统不在此次发布范围。
 
 ## 功能
 

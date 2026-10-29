@@ -82,7 +82,7 @@ $('overview').onclick=()=>action({type:'overview',collapsed:!state.config.overvi
 $('layout-toggle').onclick=()=>{$('layout').hidden=!$('layout').hidden;selectedColumn=null;selection();};
 $('help-toggle').onclick=()=>$('help').showModal();$('help-close').onclick=()=>$('help').close();
 $('create').onclick=()=>edit(null);$('cancel').onclick=()=>$('editor').close();
-$('editor').onclose=()=>{draft=null;selectedMember=null;};
+$('editor').onclose=()=>{if(!$('editor').open){draft=null;selectedMember=null;}};
 $('edit-form').onsubmit=async e=>{
   e.preventDefault(); if(busy)return;busy=true;
   const result=await window.monitor.action({type:'edit',id:draft.id,name:$('group-name').value,members:draft.members});
