@@ -5,6 +5,8 @@ const os = require('node:os');
 const {Store} = require('./store.cjs');
 const {collect} = require('./collector.cjs');
 const smoke = process.argv.includes('--smoke-test');
+const packageCheck = process.argv.includes('--package-check');
+const testing = smoke || packageCheck;
 let store, window, timer, paused = false, stopped = false;
 const records = new Map(), running = new Map();
 function snapshot() {
@@ -12,7 +14,7 @@ function snapshot() {
 }
 function broadcast() { if (window && !window.isDestroyed()) window.webContents.send('snapshot', snapshot()); }
 function refresh() {
-  if (paused || stopped || smoke) return;
+  if (paused || stopped || testing) return;
   const script = fs.readFileSync(app.isPackaged ? path.join(process.resourcesPath, 'collector.py') : path.join(__dirname, '..', 'collector.py'), 'utf8');
   for (const alias of store.config.servers) {
     if (running.has(alias)) continue;
@@ -28,10 +30,10 @@ function refresh() {
     }).finally(() => { if (running.get(alias) === job) running.delete(alias); broadcast(); });
   }
 }
-if (!smoke && !app.requestSingleInstanceLock()) app.quit();
+if (!testing && !app.requestSingleInstanceLock()) app.quit();
 else app.whenReady().then(async () => {
-  const dir = smoke ? fs.mkdtempSync(path.join(os.tmpdir(),'server-monitor-smoke-')) : path.join(app.getPath('appData'), 'ServerResourceMonitorDesktop');
-  const legacy = !smoke && process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support', 'ServerResourceMonitor', 'servers.json') : null;
+  const dir = testing ? fs.mkdtempSync(path.join(os.tmpdir(),'server-monitor-smoke-')) : path.join(app.getPath('appData'), 'ServerResourceMonitorDesktop');
+  const legacy = !testing && process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support', 'ServerResourceMonitor', 'servers.json') : null;
   store = new Store(path.join(dir, 'config.json'), legacy);
   if (smoke) {
     const fixture = require('../test/fixture.cjs');
@@ -64,6 +66,21 @@ else app.whenReady().then(async () => {
   app.on('second-instance', () => { if (window.isMinimized()) window.restore(); window.show(); window.focus(); });
   await window.loadFile(page);
   refresh(); timer = setInterval(refresh, 5000);
+  if (packageCheck) {
+    try {
+      const collectorPath = path.join(process.resourcesPath, 'collector.py');
+      if (!fs.existsSync(collectorPath)) throw Error('Packaged collector missing');
+      let ready = false;
+      for (let i = 0; i < 100; i++) {
+        ready = await window.webContents.executeJavaScript("document.getElementById('version').textContent === 'v1.0.0' && typeof require === 'undefined'");
+        if (ready) break;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      if (!ready) throw Error('Packaged renderer failed to initialize');
+      console.log('PACKAGE PASS', process.platform, process.arch);
+      fs.rmSync(dir, {recursive:true, force:true}); app.exit(0);
+    } catch(e) { console.error(e); app.exit(1); }
+  }
   if (smoke) {
     try {
       await require('../test/smoke.cjs')(window, store);

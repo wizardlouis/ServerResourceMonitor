@@ -11,17 +11,59 @@
     "smoke": "electron . --smoke-test",
     "dist": "electron-builder --publish never"
   },
-  "devDependencies": {"electron": "45.1.0", "electron-builder": "26.18.0"},
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0"
+  },
   "build": {
     "appId": "local.shen.ServerResourceMonitor.CrossPlatform",
     "productName": "Server Resource Monitor",
     "artifactName": "ServerResourceMonitor-${version}-${os}-${arch}.${ext}",
-    "directories": {"output": "release"},
-    "files": ["desktop/**/*", "package.json"],
-    "extraResources": [{"from": "collector.py", "to": "collector.py"}],
-    "mac": {"target": ["dmg", "zip"], "icon": "native/AppIcon.icns", "category": "public.app-category.utilities", "minimumSystemVersion": "13.0", "identity": null},
-    "win": {"target": ["nsis"], "icon": "native/icon.png", "signAndEditExecutable": false},
-    "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false},
-    "linux": {"target": ["AppImage", "deb"], "icon": "native/icon.png", "category": "Utility", "maintainer": "wizardlouis <wizardlouis@users.noreply.github.com>"}
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json",
+      "native/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "collector.py",
+        "to": "collector.py"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "native/AppIcon.icns",
+      "category": "public.app-category.utilities",
+      "minimumSystemVersion": "13.0",
+      "identity": "-"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "native/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "native/icon.png",
+      "category": "Utility",
+      "maintainer": "wizardlouis <wizardlouis@users.noreply.github.com>"
+    }
   }
 }

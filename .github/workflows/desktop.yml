@@ -36,12 +36,35 @@ jobs:
       - run: pnpm install --frozen-lockfile --dangerously-allow-all-builds
       - run: pnpm test
       - if: runner.os == 'Linux'
-        run: xvfb-run -a pnpm smoke
+        name: Configure Chromium sandbox helper in ephemeral runner
+        run: |
+          node -e 'require("electron")'
+          task_sandbox=$(node -p 'require("path").join(require("path").dirname(require("electron")), "chrome-sandbox")')
+          sudo chown root:root "$task_sandbox"
+          sudo chmod 4755 "$task_sandbox"
+          xvfb-run -a pnpm smoke
       - if: runner.os != 'Linux'
         run: pnpm smoke
       - run: pnpm exec electron-builder --${{ matrix.target }} --${{ matrix.arch }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - if: runner.os == 'macOS'
+        name: Verify packaged macOS app
+        run: |
+          codesign --verify --deep --strict "release/mac${{ matrix.arch == 'arm64' && '-arm64' || '' }}/Server Resource Monitor.app"
+          "release/mac${{ matrix.arch == 'arm64' && '-arm64' || '' }}/Server Resource Monitor.app/Contents/MacOS/Server Resource Monitor" --package-check
+      - if: runner.os == 'Linux'
+        name: Verify packaged Linux app
+        run: |
+          sudo chown root:root release/linux-unpacked/chrome-sandbox
+          sudo chmod 4755 release/linux-unpacked/chrome-sandbox
+          xvfb-run -a release/linux-unpacked/server-resource-monitor --package-check
+      - if: runner.os == 'Windows'
+        name: Verify packaged Windows app
+        shell: pwsh
+        run: |
+          $result = Start-Process -FilePath "release/win-unpacked/Server Resource Monitor.exe" -ArgumentList "--package-check" -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "Packaged application failed: $($result.ExitCode)" }
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.target }}-${{ matrix.arch }}

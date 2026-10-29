@@ -28,6 +28,9 @@ module.exports=async(window,store)=>{
  await waitFor(()=>document.getElementById('pause').textContent==='继续采集');
  await run(()=>document.getElementById('pause').click());
  await run(()=>document.getElementById('layout-toggle').click());
+ await waitFor(()=>!document.getElementById('editor').open && document.getElementById('layout').hidden);
+ await run(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+ await new Promise(resolve=>setTimeout(resolve,300));
  const dir=path.resolve('smoke-output');fs.mkdirSync(dir,{recursive:true});
  fs.writeFileSync(path.join(dir,`dashboard-${process.platform}-${process.arch}.png`),(await window.webContents.capturePage()).toPNG());
  assert.deepEqual(errors,[]);
