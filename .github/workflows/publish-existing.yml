@@ -1,0 +1,58 @@
+name: Publish verified build artifacts
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: 'Completed desktop build run ID'
+        required: true
+      tag:
+        description: 'Source version tag'
+        required: true
+        default: 'v1.0.0'
+permissions:
+  actions: read
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Verify source and all four build results
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          gh run view "$SOURCE_RUN" --json headSha,jobs,workflowName > build-state.json
+          python3 - <<'PY'
+          import json, subprocess
+          s=json.load(open('build-state.json'))
+          assert s['headSha']==subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          assert s['workflowName']=='Desktop builds'
+          builds=[j for j in s['jobs'] if j['name'].startswith('build (')]
+          assert len(builds)==4 and all(j['conclusion']=='success' for j in builds)
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-assets
+          merge-multiple: true
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          cd release-assets/release
+          sha256sum *.dmg *.zip *.exe *.AppImage *.deb > SHA256SUMS.txt
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft > existing.json 2>/dev/null; then
+            python3 -c 'import json; assert json.load(open("existing.json"))["isDraft"], "Release already published; leave it unchanged"'
+          else
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$RELEASE_TAG — 跨平台桌面版" --notes-file ../../RELEASE_NOTES_1.0.md
+          fi
+          gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber *.dmg *.zip *.exe *.AppImage *.deb SHA256SUMS.txt
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
