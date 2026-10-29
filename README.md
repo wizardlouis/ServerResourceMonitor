@@ -1,75 +1,52 @@
 # 服务器资源监控器
 
-## 原生 macOS 客户端（推荐）
+跨平台本地桌面客户端，通过系统 SSH 实时查看多台 Linux 服务器的 CPU、内存、GPU 和进程。支持按规模将多台服务器合成一列，自定义组名及键盘排序。
 
-双击同目录的「服务器资源监控器.app」即可启动。它使用 SwiftUI 原生界面，直接通过 SSH 采集，无需浏览器、本地网页服务或本机 Python。关闭最后一个窗口或按 Command+Q 退出，停止客户端采集。可以把 .app 拖入「应用程序」，也可以保留在当前文件夹。
+## 下载
 
-- 新安装默认服务器列表为空，通过本机 SSH Host 别名添加任意可访问服务器；已有用户列表保留。是否需要 VPN 或跳板机取决于你的网络与 SSH 配置。
-- 支持 CPU 使用率、逻辑核心、负载、内存，每卡 GPU 利用率、显存、温度、功耗，GPU 计算进程及短期趋势。
-- 逐逻辑 CPU 核心占用阵列根据实际采集到的核心数量展示，按核心编号排列。每格显示编号和百分比，悬停显示一位小数；0% 绿、50% 黄、100% 红，连续渐变，无有效采样为灰色。
-- 核心数据来自 /proc/stat 两次计数差（采样窗口约 0.4 秒，每 5 秒刷新），不代表整个刷新间隔的平均占用率，可能与 htop 因采样窗口不同而有差异。这里显示 CPU 逻辑核心，不是 GPU CUDA 核心。
-- 右上角可暂停/继续采集、立即刷新。暂停时，正在进行的一次采集可能仍会完成。
-- 输入本机 SSH Host 别名添加服务器；配置自动保存在 ~/Library/Application Support/ServerResourceMonitor/servers.json。移动应用不丢配置。
-- 沿用 ~/.ssh/config 和现有 SSH 认证，不保存密码、私钥。新服务器需先在终端完成主机密钥确认和免交互认证。
-- 每台服务器默认 5 秒采集一次，慢连接独立等待，不拖慢其他服务器。最多 16 台，最近 120 次成功采样保存在内存，退出清空。
-- 断线显示错误及最后采样时间，旧数据保留但不计入在线汇总。暂停时汇总为暂停前状态。
-- 服务器需要 Linux、Python 3；NVIDIA GPU 需要 nvidia-smi。无需在服务器安装采集服务，不修改训练任务。
-- 可用显存合计分散在不同卡上，不代表单卡可用容量。
+在 [GitHub Releases](https://github.com/wizardlouis/ServerResourceMonitor/releases) 下载 v1.0.0：
 
-当前应用为本机编译、临时签名的 Apple Silicon 版本，已在本机验证；尚未进行面向其他 Mac 分发的开发者公证。未设置开机启动、告警或长期历史留存。
+| 系统 | 下载 |
+|---|---|
+| macOS 13+ · Apple Silicon | mac-arm64.dmg 或 zip |
+| macOS 13+ · Intel | mac-x64.dmg 或 zip |
+| Windows 10/11 · x64 | win-x64.exe |
+| Ubuntu 24.04 / 现代 Linux · x64 | linux-x64.AppImage 或 deb |
 
-## GPU 进程用户
+文件名前缀为 ServerResourceMonitor-1.0.0-。应用未进行商业代码签名或 Apple 公证。Linux AppImage 可能需要 FUSE 兼容组件，deb 适用于 Debian/Ubuntu 系列。暂不提供 Windows/Linux ARM 或 32 位安装包。
 
-v0.4 在 GPU 计算进程列表增加用户列，显示服务器上运行该进程的有效用户账号。通过 /proc/PID/status 的有效 UID 解析用户名；账号无法解析时显示 UID，进程已结束或权限不足时显示“未知”。无需提权。
+## 使用
 
-## 性能优化（v0.4.1）
+1. 安装系统 OpenSSH 客户端；客户端无需 Python 或 Node.js。
+2. 在本机 SSH 配置中添加 Host 别名。Windows 配置为 `%USERPROFILE%\.ssh\config`，macOS/Linux 为 `~/.ssh/config`。
+3. 先用系统终端执行 `ssh 别名`，核对主机指纹，配置公钥或 ssh-agent 免交互认证。
+4. 启动应用，添加别名。服务器须为 Linux + Python 3；NVIDIA GPU 指标需要 nvidia-smi。
+5. “分组与顺序”可创建/编辑/解散分组。选择列标牌按左右键移动，编辑组内成员时按上下键排序。
 
-玻璃灯改为按整数占用率缓存小图像（最多 102 张），避免每个核心持续进行阴影、模糊和多层渐变合成。核心组件按数据变化更新；单台服务器采样结果合并为一次状态提交。保留 5 秒采集周期和玻璃效果。
+每 5 秒独立采集，超时 18 秒；CPU 核心使用率来自约 0.4 秒采样窗口。暂停时正在进行的采集仍可能完成。离线显示最后数据和错误，不计入在线汇总。趋势保留最近 120 次成功采样，退出清空。关闭最后一个窗口即退出并停止 SSH 采集。
 
-## 显示粒度与横向浏览（v0.5）
+## 升级与配置
 
-CPU 核心区域右上角选择单个逻辑核心或 2、4、8、16 核心合并，按核心编号升序分组，显示算术平均占用。每行最多 16 盏灯；末组不足 k 个时按实际数量计算。组内缺失采样时显示灰灯，悬停可看组内实际编号。每台服务器的选择自动保存，重启后恢复。此设置仅影响 CPU 展示，不改变采集频率或 GPU 指标。
+macOS 首次启动新版会导入 `~/Library/Application Support/ServerResourceMonitor/servers.json` 中的服务器与分组，不覆盖旧文件。核心粒度与顶部折叠初始为默认值，新版设置后独立保存。
 
-服务器固定横向排列，正常宽度下约显示两台；更多服务器用水平滚动或底部滚动条查看。服务器区同时支持上下滚动，顶部总览保留。Logi Options+ 拇指轮需映射为水平滚动；本次已验证系统水平滚动和第三张卡片的访问，未直接验证实体鼠标的按键映射。窄窗口下可水平滚动查看被遮挡的卡片。
+新版配置目录：macOS 为 `~/Library/Application Support/ServerResourceMonitorDesktop/`，Windows 为 `%APPDATA%\ServerResourceMonitorDesktop\`，Linux 为 `~/.config/ServerResourceMonitorDesktop/`（遵循 XDG_CONFIG_HOME）。配置损坏时保留原文件并显示错误，修复后重启。
 
-验证包含五档聚合、平均值、尾组、缺失采样，以及客户端粒度菜单和第三张临时卡片的横向浏览；临时卡片已移除，未发起该卡片的 SSH 连接。
+发布包不含个人服务器列表、SSH 配置或凭据。应用只读取系统 OpenSSH 配置，不存储密码；采集脚本通过标准输入发送，不在服务器安装服务。
 
-## 顶部总览收起（v0.5.1）
+## 开发与验证
 
-点击右上角圆圈省略号可隐藏或展开顶部标题介绍、添加服务器栏与四项资源汇总。收起后保留紧凑标题、在线数量、暂停/刷新与恢复按钮；偏好自动保存。服务器监控持续运行，粒度设置不受影响。
+Node.js 24、pnpm 11.25.0：
 
-## 持续开发
+```sh
+pnpm install --frozen-lockfile --dangerously-allow-all-builds
+pnpm test
+pnpm smoke
+pnpm start
+pnpm dist
+```
 
-native/Monitor.swift 是客户端源码；native/build.command 是重新构建脚本；collector.py 是只读远程采集器。构建需要 Xcode Command Line Tools。修改采集器后需要重新构建以更新应用内部副本。
+Linux 无显示器的 CI 环境使用 `xvfb-run -a pnpm smoke`。烟雾测试使用合成数据，不连接个人服务器。GitHub Actions 为四种系统/架构分别测试、打包；只有所有构建成功后，v1.* 标签才发布正式 Release。包内含 Chromium/Electron，因此体积大于旧版 SwiftUI 应用。
 
-现有 web、server.py 和「启动监控器.command」保留为旧浏览器版，独立于原生客户端。它们无需为客户端运行。
+`desktop/` 为跨平台客户端；`collector.py` 为只读远程采集器；`native/` 保留 macOS SwiftUI v0.6 客户端；`web/` 和 `server.py` 为历史浏览器版。旧版构建与使用说明见 [native/README-v0.6.md](native/README-v0.6.md)。
 
-## GPU 简称与显存标题（v0.5.4）
-
-GPU 卡片标题显示简称和采集到的总显存（GiB），总显存保留独立空间，避免随名称截断。去掉 NVIDIA、GeForce、Tesla 前缀，保留 Ti、SUPER、D、Ada 等型号区别；A100、H100、H200、V100 的接口和显存后缀从简称中移除，未知型号保守保留。悬停标题可查看完整原始名称。下方标签简化为“显存占用”，温度和功耗移至卡片底部。总显存缺失时显示“— GiB”。
-
-## 通用配置
-
-应用内不预置特定服务器、IP、账号或 VPN 要求。原生客户端使用用户目录中的服务器列表；旧浏览器版使用目录下的 servers.json（当前个人列表保留，分发前可改为 {"servers": []}）。配置缺失或读取失败不会自动连接任何预设服务器。
-
-当前采集目标为 Linux + Python 3，GPU 指标依赖 NVIDIA nvidia-smi；尚不支持 Windows/macOS 远端和 AMD/Intel GPU 指标。CPU、内存和核心数量按实际采集值显示，不绑定具体机器规格。
-
-## 点击与键盘排序（v0.5.5）
-
-点击“调整顺序”在页面内展开标牌区域。鼠标左键点击标牌选中，按 ← 或 → 每次移动一格；到达边界后保持不变。点击其他位置取消选中，点击另一标牌切换选择。顺序即时保存，再次点击“调整顺序”可收起。已移除拖拽排序。实际界面验证通过：ABC → ACB → CAB、左右边界、恢复原顺序，以及点击输入框取消选中后方向键不再排序。
-
-## 服务器分组（v0.6.0）
-
-“分组与顺序”支持创建分组、自定义组名、添加或移出成员、解散分组。每组占一列，各服务器保留完整独立卡片并从上到下排列；单成员组占独立列。点击列标牌后用左右方向键移动整列；编辑分组时点击成员，再按上下方向键调整组内顺序，点击其他位置取消选中。编辑表单点击保存后生效，取消不修改布局。移出的成员恢复独立列，解散不删除服务器或停止监控。
-
-配置仍保存在 ~/Library/Application Support/ServerResourceMonitor/servers.json，新增 columns 字段保存列的稳定 ID、名称和成员顺序。兼容旧 servers 配置，新服务器默认独立列；无效和重复成员会自动整理，每台服务器只出现一次。保存失败时保留原布局并显示错误。
-
-已验证旧配置迁移、唯一成员、增删服务器的布局整理、分组/改名/成员转移/移出/解散、排序边界及保存失败回退；实际界面验证分组创建、组内上下排序、整列左右排序及重启恢复。可按实际服务器规模自定义分组与顺序。
-
-## 下载与构建
-
-在 GitHub Releases 下载 `ServerResourceMonitor-v0.6.0-macOS-arm64.zip`，解压后打开应用。支持 Apple Silicon Mac，macOS 13 或以上。应用为本机临时签名，未做 Apple 开发者公证。
-
-源码构建：安装 Xcode Command Line Tools 后，在项目目录运行 `./native/build.command`。应用内初始服务器列表为空，请先在本机 SSH 配置中设置可免交互登录的 Host 别名，再在应用中添加。
-
-仓库不包含个人 SSH 配置、密钥或服务器列表。旧浏览器版可直接运行 `python3 server.py`，或将 `servers.example.json` 复制为 `servers.json` 后配置别名。
+详见 [1.0 发布说明](RELEASE_NOTES_1.0.md) 中的平台限制和测试范围。

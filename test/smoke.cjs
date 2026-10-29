@@ -1,0 +1,34 @@
+const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');
+module.exports=async(window,store)=>{
+ const errors=[];window.webContents.on('console-message',event=>{if(event.level === 'error')errors.push(event.message);});
+ const run=fn=>window.webContents.executeJavaScript(`(${fn.toString()})()`);
+ async function waitFor(fn){for(let i=0;i<100;i++){if(await run(fn))return;await new Promise(r=>setTimeout(r,50));}throw Error('UI condition timed out: '+fn);}
+ await waitFor(()=>document.querySelectorAll('.server').length===4);
+ assert.equal(await run(()=>typeof require),'undefined');
+ assert.equal(await run(()=>document.querySelectorAll('.column').length),3);
+ assert.equal(await run(()=>document.querySelectorAll('.column')[0].querySelectorAll('.server').length),2);
+ assert.equal(await run(()=>document.querySelector('.gpu-total').textContent),'24.0 GiB');
+ await run(()=>document.getElementById('layout-toggle').click());
+ await run(()=>document.querySelector('[data-column="pair"]').click());
+ await run(()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true})));
+ await waitFor(()=>document.querySelector('[data-column]').dataset.column==='a100');
+ await run(()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true})));
+ await waitFor(()=>document.querySelector('[data-column]').dataset.column==='pair');
+ await run(()=>document.querySelector('[data-edit="pair"]').click());
+ await waitFor(()=>document.getElementById('editor').open);
+ await run(()=>{document.querySelector('[data-member="demo-small-2"]').click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));});
+ assert.equal(await run(()=>document.querySelector('[data-member]').dataset.member),'demo-small-2');
+ await run(()=>document.getElementById('cancel').click());
+ assert.deepEqual(store.config.columns[0].members,['demo-small','demo-small-2']);
+ await run(()=>{const e=document.querySelector('[data-core="demo-small"]');e.value='8';e.dispatchEvent(new Event('change',{bubbles:true}));});
+ await waitFor(()=>document.querySelector('[data-alias="demo-small"] .core-grid').children.length===4);
+ await run(()=>document.getElementById('overview').click());
+ await waitFor(()=>document.body.classList.contains('collapsed'));
+ await run(()=>document.getElementById('pause').click());
+ await waitFor(()=>document.getElementById('pause').textContent==='继续采集');
+ await run(()=>document.getElementById('pause').click());
+ await run(()=>document.getElementById('layout-toggle').click());
+ const dir=path.resolve('smoke-output');fs.mkdirSync(dir,{recursive:true});
+ fs.writeFileSync(path.join(dir,`dashboard-${process.platform}-${process.arch}.png`),(await window.webContents.capturePage()).toPNG());
+ assert.deepEqual(errors,[]);
+};

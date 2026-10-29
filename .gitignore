@@ -4,3 +4,6 @@ __pycache__/
 *.app/
 dist/
 servers.json
+node_modules/
+release/
+smoke-output/

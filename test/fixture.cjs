@@ -1,0 +1,5 @@
+const {normalize} = require('../desktop/model.cjs');
+const aliases=['demo-small','demo-small-2','demo-a100','demo-large'];
+const config=normalize({servers:aliases,columns:[{id:'pair',name:'双卡服务器',members:aliases.slice(0,2)},{id:'a100',name:'A100 工作站',members:[aliases[2]]},{id:'large',name:'独立服务器',members:[aliases[3]]}]});
+const servers=aliases.map((alias,i)=>({alias,status:'online',hostname:'demo-linux',cpu_percent:35, cpu_count:i>1?112:32,cpu_cores:Array.from({length:i>1?112:32},(_,id)=>({id,percent:id===5?null:id%101})),load:[2,3,4],memory_total:128*1073741824,memory_used:32*1073741824,memory_percent:25,updated:Date.now(),history:[{cpu:5,gpu:10},{cpu:45,gpu:50}],gpus:Array.from({length:i>1?8:2},(_,n)=>({index:String(n),uuid:`${alias}-${n}`,name:i===2?'NVIDIA A100 80GB PCIe':'NVIDIA GeForce RTX 4090',util:50,used:12000,total:i===2?81920:24576,temp:55,power:200})),processes:[{uuid:`${alias}-0`,pid:'123',user:'demo',name:'/usr/bin/python3',memory:12000}]}));
+module.exports={config,servers};

@@ -1,0 +1,79 @@
+name: Desktop builds
+on:
+  push:
+    branches: [main]
+    tags: ['v1.*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            arch: x64
+            target: mac
+          - os: macos-15
+            arch: arm64
+            target: mac
+          - os: windows-latest
+            arch: x64
+            target: win
+          - os: ubuntu-24.04
+            arch: x64
+            target: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.25.0'
+      - run: pnpm install --frozen-lockfile --dangerously-allow-all-builds
+      - run: pnpm test
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm smoke
+      - if: runner.os != 'Linux'
+        run: pnpm smoke
+      - run: pnpm exec electron-builder --${{ matrix.target }} --${{ matrix.arch }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.target }}-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/*.deb
+            smoke-output/*.png
+          if-no-files-found: error
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v1.')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish verified packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-assets
+          sha256sum *.dmg *.zip *.exe *.AppImage *.deb > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --title "v1.0.0 — 跨平台桌面版" --notes-file ../RELEASE_NOTES_1.0.md
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" *.dmg *.zip *.exe *.AppImage *.deb SHA256SUMS.txt
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
