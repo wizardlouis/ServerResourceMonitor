@@ -14,12 +14,22 @@ module.exports=async(window,store)=>{
  await waitFor(()=>document.querySelector('[data-column]').dataset.column==='a100');
  await run(()=>document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true})));
  await waitFor(()=>document.querySelector('[data-column]').dataset.column==='pair');
+ await run(()=>{const input=document.getElementById('alias');input.focus();input.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));});
+ assert.equal(store.config.columns[0].id,'pair');
  await run(()=>document.querySelector('[data-edit="pair"]').click());
  await waitFor(()=>document.getElementById('editor').open);
  await run(()=>{document.querySelector('[data-member="demo-small-2"]').click();document.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));});
  assert.equal(await run(()=>document.querySelector('[data-member]').dataset.member),'demo-small-2');
  await run(()=>document.getElementById('cancel').click());
  assert.deepEqual(store.config.columns[0].members,['demo-small','demo-small-2']);
+ await run(()=>document.querySelector('[data-edit="pair"]').click());
+ await run(()=>{document.getElementById('group-name').value='已保存分组';document.getElementById('save').click();});
+ await waitFor(()=>!document.getElementById('editor').open && document.querySelector('.column h2').textContent.includes('已保存分组'));
+ assert.equal(store.config.columns[0].name,'已保存分组');
+ await run(()=>document.querySelector('[data-edit="pair"]').click());
+ await run(()=>{document.getElementById('group-name').value='双卡服务器';document.getElementById('save').click();});
+ await waitFor(()=>!document.getElementById('editor').open);
+
  await run(()=>{const e=document.querySelector('[data-core="demo-small"]');e.value='8';e.dispatchEvent(new Event('change',{bubbles:true}));});
  await waitFor(()=>document.querySelector('[data-alias="demo-small"] .core-grid').children.length===4);
  await run(()=>document.getElementById('overview').click());

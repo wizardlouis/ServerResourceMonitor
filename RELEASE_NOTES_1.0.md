@@ -29,8 +29,8 @@
 
 macOS 首次启动自动导入原生版的服务器及分组，新旧版之后各自保存配置。核心粒度和顶部折叠偏好在新版首次使用时设为默认值；随后独立保存。旧版仍可运行，但建议只开一个版本，避免重复采集。
 
-应用尚无商业代码签名与 Apple 公证；Windows/macOS 可能显示未验证发布者提示。Linux AppImage 可能需要发行版的 FUSE 兼容组件。Linux .deb 适用于 Debian/Ubuntu 系列。
+应用尚无商业代码签名与 Apple 公证；Windows/macOS 可能显示未验证发布者提示。Linux AppImage 可能需要发行版的 FUSE 兼容组件及允许该应用使用用户命名空间的沙箱策略；Ubuntu 24.04 优先使用 .deb。Linux .deb 适用于 Debian/Ubuntu 系列。
 
 ## 验证范围
 
-发布流水线在 macOS Intel、macOS Apple Silicon、Windows x64、Ubuntu x64 环境执行配置/SSH 接口自动测试、Electron 界面启动与交互烟雾测试，并生成安装包。macOS Apple Silicon 另进行本机真实 SSH 采集验证。自动测试不能替代每个发行版、每台电脑上的安装和真实 SSH 环境测试；Windows/Linux 未声称完成手工真实服务器测试。
+发布流水线在 macOS Intel、macOS Apple Silicon、Windows x64、Ubuntu x64 环境执行配置/SSH 接口自动测试、Electron 界面启动与交互烟雾测试，生成安装包后再验证解包应用启动。macOS Apple Silicon 另进行本机真实 SSH 采集验证。自动测试不能替代每个发行版、每台电脑上的安装和真实 SSH 环境测试；Windows/Linux 未声称完成手工真实服务器测试。

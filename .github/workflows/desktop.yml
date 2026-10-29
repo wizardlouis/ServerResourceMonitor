@@ -25,6 +25,7 @@ jobs:
             arch: x64
             target: linux
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
