@@ -13,10 +13,10 @@ const smoke = process.argv.includes('--smoke-test');
 const packageCheck = process.argv.includes('--package-check');
 const testing = smoke || packageCheck;
 if (testing) app.disableHardwareAcceleration();
-let store, vault, window, timer, connectionBusy=false, pendingConnection, paused = false, stopped = false;
+let store, vault, window, timer, rememberAvailable=null, connectionBusy=false, pendingConnection, paused = false, stopped = false;
 const records = new Map(), running = new Map();
 function snapshot() {
-  return {config: {...store.config,passwordConnections:Object.fromEntries(Object.entries(store.config.passwordConnections).map(([id,p])=>[id,{address:p.address,port:p.port,username:p.username,remember:p.remember}]))}, canRememberPassword: vault.canRemember(), servers: store.config.servers.map(alias => ({alias, status: 'loading', history: [], ...records.get(alias)})), paused, error: store.error, imported: store.imported, platform: process.platform, version: app.getVersion()};
+  return {config: {...store.config,passwordConnections:Object.fromEntries(Object.entries(store.config.passwordConnections).map(([id,p])=>[id,{address:p.address,port:p.port,username:p.username,remember:p.remember}]))}, canRememberPassword: rememberAvailable !== false, servers: store.config.servers.map(alias => ({alias, status: 'loading', history: [], ...records.get(alias)})), paused, error: store.error, imported: store.imported, platform: process.platform, version: app.getVersion()};
 }
 function broadcast() { if (window && !window.isDestroyed()) window.webContents.send('snapshot', snapshot()); }
 function collectorScript() { return fs.readFileSync(app.isPackaged ? path.join(process.resourcesPath, 'collector.py') : path.join(__dirname, '..', 'collector.py'), 'utf8'); }
@@ -29,7 +29,10 @@ async function connectServer(action) {
   if(action.id && !old)throw Error('连接已不存在');
   if(!action.id && store.config.servers.length>=16)throw Error('最多支持 16 台服务器');
   if(Object.entries(store.config.passwordConnections).some(([key,value])=>key!==id && sameEndpoint(value,p)))throw Error('该连接已在列表中');
-  if(action.remember===true && !vault.canRemember())throw Error('系统安全存储不可用，请取消“记住密码”');
+  if(action.remember===true) {
+    rememberAvailable=vault.canRemember();
+    if(!rememberAvailable){broadcast();throw Error('系统安全存储不可用，已切换为仅本次运行，请再次点击连接');}
+  }
   const credentialID=randomUUID();let stored=false;
   connectionBusy=true;
   try {

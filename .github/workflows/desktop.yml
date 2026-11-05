@@ -51,17 +51,20 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - if: runner.os == 'macOS'
         name: Verify packaged macOS app
+        timeout-minutes: 2
         run: |
           codesign --verify --deep --strict "release/mac${{ matrix.arch == 'arm64' && '-arm64' || '' }}/Server Resource Monitor.app"
           "release/mac${{ matrix.arch == 'arm64' && '-arm64' || '' }}/Server Resource Monitor.app/Contents/MacOS/Server Resource Monitor" --package-check
       - if: runner.os == 'Linux'
         name: Verify packaged Linux app
+        timeout-minutes: 2
         run: |
           sudo chown root:root release/linux-unpacked/chrome-sandbox
           sudo chmod 4755 release/linux-unpacked/chrome-sandbox
           xvfb-run -a release/linux-unpacked/server-resource-monitor --package-check
       - if: runner.os == 'Windows'
         name: Verify packaged Windows app
+        timeout-minutes: 2
         shell: pwsh
         run: |
           $result = Start-Process -FilePath "release/win-unpacked/Server Resource Monitor.exe" -ArgumentList "--package-check" -Wait -PassThru

@@ -16,9 +16,9 @@ function openConnection(id=null) {
  $('connection-title').textContent=p?'修改连接':'账号密码连接';
  $('connection-address').value=p?.address||'';$('connection-port').value=String(p?.port||22);
  $('connection-user').value=p?.username||'';$('connection-password').value='';
- $('connection-remember').checked=state.canRememberPassword && (p?p.remember:true);
+ $('connection-remember').checked=state.canRememberPassword && (p?p.remember:false);
  $('connection-remember').disabled=!state.canRememberPassword;
- $('connection-storage').textContent=state.canRememberPassword?'密码不会写入普通连接配置；取消勾选则仅用于本次运行。':'系统安全存储不可用：密码仅在本次运行中保留，退出后需重新输入。';
+ $('connection-storage').textContent=state.canRememberPassword?'默认仅用于本次运行；勾选后使用系统安全存储，系统可能请求授权。':'系统安全存储不可用：密码仅在本次运行中保留，退出后需重新输入。';
  $('connection-error').textContent='';$('connection-save').textContent=p?'连接并保存':'连接并添加';
  $('connection').showModal();
 }
@@ -61,6 +61,10 @@ function selection() {
 }
 function render(snapshot) {
   state=snapshot;
+  if(!state.canRememberPassword && $('connection').open) {
+    $('connection-remember').checked=false;$('connection-remember').disabled=true;
+    $('connection-storage').textContent='系统安全存储不可用：密码仅在本次运行中保留，退出后需重新输入。';
+  }
   const horizontal=state.config.groupOrientation==='horizontal';
   document.body.classList.toggle('horizontal-groups',horizontal);
   document.body.classList.toggle('compact',state.config.serverPanelTheme==='compact');
