@@ -73,7 +73,7 @@ else app.whenReady().then(async () => {
       if (!fs.existsSync(collectorPath)) throw Error('Packaged collector missing');
       let ready = false;
       for (let i = 0; i < 100; i++) {
-        ready = await window.webContents.executeJavaScript("document.getElementById('version').textContent === 'v1.0.1' && typeof require === 'undefined'");
+        ready = await window.webContents.executeJavaScript(`document.getElementById('version').textContent === ${JSON.stringify('v'+app.getVersion())} && typeof require === 'undefined'`);
         if (ready) break;
         await new Promise(resolve => setTimeout(resolve, 50));
       }

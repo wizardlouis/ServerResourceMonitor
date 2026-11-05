@@ -17,7 +17,11 @@ function normalize(input = {}) {
   }
   for (const alias of servers) if (!seen.has(alias)) columns.push(column(alias, [alias]));
   const coreGrouping = Object.fromEntries(servers.map(a => [a, sizes.includes(input.coreGrouping?.[a]) ? input.coreGrouping[a] : 1]));
-  return {version: 1, servers, columns, coreGrouping, overviewCollapsed: input.overviewCollapsed === true};
+  return {version: 1, servers, columns, coreGrouping, overviewCollapsed: input.overviewCollapsed === true,
+    coreIDRadix: input.coreIDRadix === 16 ? 16 : 10,
+    serverPanelTheme: input.serverPanelTheme === 'compact' ? 'compact' : 'detailed',
+    groupOrientation: input.groupOrientation === 'horizontal' ? 'horizontal' : 'vertical',
+    gpuGrouping: Object.fromEntries(servers.map(a => [a, [1,2,4,8].includes(input.gpuGrouping?.[a]) ? input.gpuGrouping[a] : 1]))};
 }
 function mutate(config, action) {
   const c = structuredClone(config);
@@ -57,6 +61,14 @@ function mutate(config, action) {
     case 'coreSize':
       if (!c.servers.includes(a.alias) || !sizes.includes(a.size)) throw Error('无效核心显示粒度');
       c.coreGrouping[a.alias] = a.size; break;
+    case 'gpuSize':
+      if (!c.servers.includes(a.alias) || ![1,2,4,8].includes(a.size)) throw Error('无效 GPU 显示粒度');
+      c.gpuGrouping[a.alias] = a.size; break;
+    case 'display': {
+      const values = {coreIDRadix: [10,16], serverPanelTheme: ['detailed','compact'], groupOrientation: ['vertical','horizontal']};
+      if (!Object.hasOwn(values, a.key) || !values[a.key].includes(a.value)) throw Error('无效显示设置');
+      c[a.key] = a.value; break;
+    }
     case 'overview': c.overviewCollapsed = !!a.collapsed; break;
     default: throw Error('未知配置操作');
   }

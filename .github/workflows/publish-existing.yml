@@ -8,7 +8,7 @@ on:
       tag:
         description: 'Source version tag'
         required: true
-        default: 'v1.0.1'
+        default: 'v1.0.2'
 permissions:
   actions: read
   contents: write
@@ -52,7 +52,7 @@ jobs:
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft > existing.json 2>/dev/null; then
             python3 -c 'import json; assert json.load(open("existing.json"))["isDraft"], "Release already published; leave it unchanged"'
           else
-            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$RELEASE_TAG — 跨平台桌面版" --notes-file ../../RELEASE_NOTES_1.0.md
+            gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$RELEASE_TAG — 跨平台桌面版" --notes-file ../../RELEASE_NOTES_1.0.2.md
           fi
           gh release upload "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --clobber *.dmg *.zip *.exe *.AppImage *.deb SHA256SUMS.txt
           gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
