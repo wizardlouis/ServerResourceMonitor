@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const {savedConnection}=require('./connections.cjs');
 const sizes = [1, 2, 4, 8, 16];
 const validAlias = alias => typeof alias === 'string' && /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/.test(alias);
 const column = (name, members) => ({id: crypto.randomUUID(), name, members});
@@ -16,8 +17,9 @@ function normalize(input = {}) {
     columns.push({id, name: String(c.name || members.join(' + ')).trim().slice(0, 80), members});
   }
   for (const alias of servers) if (!seen.has(alias)) columns.push(column(alias, [alias]));
+  const passwordConnections = Object.fromEntries(servers.filter(alias=>input.passwordConnections && Object.hasOwn(input.passwordConnections,alias)).map(alias=>[alias,savedConnection(input.passwordConnections[alias])]));
   const coreGrouping = Object.fromEntries(servers.map(a => [a, sizes.includes(input.coreGrouping?.[a]) ? input.coreGrouping[a] : 1]));
-  return {version: 1, servers, columns, coreGrouping, overviewCollapsed: input.overviewCollapsed === true,
+  return {version: 1, servers, columns, coreGrouping, passwordConnections, overviewCollapsed: input.overviewCollapsed === true,
     coreIDRadix: input.coreIDRadix === 16 ? 16 : 10,
     serverPanelTheme: input.serverPanelTheme === 'compact' ? 'compact' : 'detailed',
     groupOrientation: input.groupOrientation === 'horizontal' ? 'horizontal' : 'vertical',

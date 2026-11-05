@@ -6,6 +6,22 @@ const gib = v => num(Number.isFinite(v) ? v/1073741824 : null,1);
 const bar = (v,blue=false) => `<div class="bar ${blue?'blue':''}"><i style="width:${clamp(v)}%"></i></div>`;
 let state, selectedColumn = null, selectedMember = null, draft = null, layoutSignature = '', busy = false, notice = '';
 const expanded = new Set();
+let connectionID=null, connecting=false;
+function serverLabel(id) {
+ const p=state?.config.passwordConnections?.[id];
+ return p?`${p.username}@${p.address.includes(':')?'['+p.address+']':p.address}:${p.port}`:id;
+}
+function openConnection(id=null) {
+ connectionID=id; const p=state.config.passwordConnections[id];
+ $('connection-title').textContent=p?'修改连接':'账号密码连接';
+ $('connection-address').value=p?.address||'';$('connection-port').value=String(p?.port||22);
+ $('connection-user').value=p?.username||'';$('connection-password').value='';
+ $('connection-remember').checked=state.canRememberPassword && (p?p.remember:true);
+ $('connection-remember').disabled=!state.canRememberPassword;
+ $('connection-storage').textContent=state.canRememberPassword?'密码不会写入普通连接配置；取消勾选则仅用于本次运行。':'系统安全存储不可用：密码仅在本次运行中保留，退出后需重新输入。';
+ $('connection-error').textContent='';$('connection-save').textContent=p?'连接并保存':'连接并添加';
+ $('connection').showModal();
+}
 async function action(command) {
   const result = await window.monitor.action(command);
   if (!result.ok) { notice = result.error; $('message').textContent = notice; }
@@ -37,7 +53,7 @@ function userJobs(s) {
   return `<div class="table-scroll"><table class="user-jobs"><thead><tr><th>用户</th><th>GPU</th><th>显存合计 MiB</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.user)}</td><td>${esc(r.gpuLabel)}</td><td>${r.memory===null?'未知（数据不全）':num(r.memory)}</td></tr>`).join('')||'<tr><td colspan="3">暂无可见计算进程</td></tr>'}</tbody></table></div>`;
 }
 function serverHTML(s) {
-  return `<div class="top"><div><h2>${esc(s.alias)}</h2><span class="tiny">${esc(s.hostname||'等待采集')}</span></div><div><span class="status">${s.status==='online'?'● 在线':s.status==='offline'?'● 连接中断':'◌ 连接中'}</span><button class="remove" data-remove="${esc(s.alias)}" aria-label="移除 ${esc(s.alias)}">×</button></div></div>${s.error?`<div class="error">数据已过期 / 暂不可用\n${esc(s.error)}</div>`:''}${s.cpu_percent==null?'<div class="empty">等待 SSH 采集。首次连接请查看“连接帮助”。</div>':`<div class="metrics"><div><span class="muted">CPU 使用率</span><div class="value">${num(s.cpu_percent,1)}%</div>${bar(s.cpu_percent)}<span class="tiny">${esc(s.cpu_count)} 逻辑核心 · 负载 ${num(s.load?.[0],2)}</span></div><div><span class="muted">内存使用率</span><div class="value">${num(s.memory_percent,1)}%</div>${bar(s.memory_percent,true)}<span class="tiny">${gib(s.memory_used)} / ${gib(s.memory_total)} GiB</span></div></div>${cores(s)}<div class="section-label"><span>GPU · ${(s.gpus||[]).length} 张显卡</span><select data-gpu="${esc(s.alias)}" aria-label="${esc(s.alias)} GPU 显示粒度">${[1,2,4,8].map(n=>`<option value="${n}" ${n===(state.config.gpuGrouping[s.alias]||1)?'selected':''}>${n===1?'单卡':n+' 卡合并'}</option>`).join('')}</select></div>${s.gpu_error?`<div class="error">${esc(s.gpu_error)}</div>`:''}<div class="gpus">${utils.groupGPUs(s.gpus||[],state.config.gpuGrouping[s.alias]).map(gpu).join('')}</div><div class="section-label">近期趋势 · CPU 绿 / GPU 均值 蓝</div>${chart(s.history)}<details data-details="${esc(s.alias)}" ${expanded.has(s.alias)?'open':''}><summary>GPU 计算进程 · ${(s.processes||[]).length}</summary>${state.config.serverPanelTheme==='compact'?userJobs(s):`<div class="table-scroll"><table><thead><tr><th>GPU</th><th>PID</th><th>用户</th><th>进程</th><th>显存 MiB</th></tr></thead><tbody>${(s.processes||[]).map(p=>`<tr><td>${esc(s.gpus.find(g=>g.uuid===p.uuid)?.index??'—')}</td><td>${esc(p.pid)}</td><td>${esc(p.user||'未知')}</td><td class="name" title="${esc(p.name)}">${esc(String(p.name).split(/[\\/]/).at(-1))}</td><td>${num(p.memory)}</td></tr>`).join('')||'<tr><td colspan="5">暂无可见计算进程</td></tr>'}</tbody></table></div>`}</details><div class="foot">最后成功采集 ${s.updated?new Date(s.updated).toLocaleTimeString():'—'}</div>`}`;
+  return `<div class="top"><div><h2>${esc(serverLabel(s.alias))}</h2><span class="tiny">${esc(s.hostname||'等待采集')}</span></div><div><span class="status">${s.status==='online'?'● 在线':s.status==='offline'?'● 连接中断':'◌ 连接中'}</span>${state.config.passwordConnections[s.alias]?`<button data-connection="${esc(s.alias)}">连接设置</button>`:''}<button class="remove" data-remove="${esc(s.alias)}" aria-label="移除 ${esc(s.alias)}">×</button></div></div>${s.error?`<div class="error">数据已过期 / 暂不可用\n${esc(s.error)}</div>`:''}${s.cpu_percent==null?'<div class="empty">等待 SSH 采集。首次连接请查看“连接帮助”。</div>':`<div class="metrics"><div><span class="muted">CPU 使用率</span><div class="value">${num(s.cpu_percent,1)}%</div>${bar(s.cpu_percent)}<span class="tiny">${esc(s.cpu_count)} 逻辑核心 · 负载 ${num(s.load?.[0],2)}</span></div><div><span class="muted">内存使用率</span><div class="value">${num(s.memory_percent,1)}%</div>${bar(s.memory_percent,true)}<span class="tiny">${gib(s.memory_used)} / ${gib(s.memory_total)} GiB</span></div></div>${cores(s)}<div class="section-label"><span>GPU · ${(s.gpus||[]).length} 张显卡</span><select data-gpu="${esc(s.alias)}" aria-label="${esc(s.alias)} GPU 显示粒度">${[1,2,4,8].map(n=>`<option value="${n}" ${n===(state.config.gpuGrouping[s.alias]||1)?'selected':''}>${n===1?'单卡':n+' 卡合并'}</option>`).join('')}</select></div>${s.gpu_error?`<div class="error">${esc(s.gpu_error)}</div>`:''}<div class="gpus">${utils.groupGPUs(s.gpus||[],state.config.gpuGrouping[s.alias]).map(gpu).join('')}</div><div class="section-label">近期趋势 · CPU 绿 / GPU 均值 蓝</div>${chart(s.history)}<details data-details="${esc(s.alias)}" ${expanded.has(s.alias)?'open':''}><summary>GPU 计算进程 · ${(s.processes||[]).length}</summary>${state.config.serverPanelTheme==='compact'?userJobs(s):`<div class="table-scroll"><table><thead><tr><th>GPU</th><th>PID</th><th>用户</th><th>进程</th><th>显存 MiB</th></tr></thead><tbody>${(s.processes||[]).map(p=>`<tr><td>${esc(s.gpus.find(g=>g.uuid===p.uuid)?.index??'—')}</td><td>${esc(p.pid)}</td><td>${esc(p.user||'未知')}</td><td class="name" title="${esc(p.name)}">${esc(String(p.name).split(/[\\/]/).at(-1))}</td><td>${num(p.memory)}</td></tr>`).join('')||'<tr><td colspan="5">暂无可见计算进程</td></tr>'}</tbody></table></div>`}</details><div class="foot">最后成功采集 ${s.updated?new Date(s.updated).toLocaleTimeString():'—'}</div>`}`;
 }
 function selection() {
   document.querySelectorAll('[data-column]').forEach(e=>{const yes=e.dataset.column===selectedColumn;e.classList.toggle('selected',yes);e.setAttribute('aria-pressed',String(yes));});
@@ -76,7 +92,7 @@ function render(snapshot) {
   });
 }
 function renderMembers() {
-  $('members').innerHTML=draft.members.map(m=>`<button type="button" data-member="${esc(m)}">${esc(m)}</button>`).join('');
+  $('members').innerHTML=draft.members.map(m=>`<button type="button" data-member="${esc(m)}">${esc(serverLabel(m))}</button>`).join('');
   $('save').disabled=!draft.members.length;selection();
 }
 function edit(id) {
@@ -84,9 +100,25 @@ function edit(id) {
   draft={id:c?.id,name:c?.name||'新分组',members:[...(c?.members||[])]};selectedMember=null;
   $('editor-title').textContent=c?'编辑服务器分组':'创建服务器分组';
   $('group-name').value=draft.name;
-  $('choices').innerHTML=state.config.servers.map(a=>`<label><input type="checkbox" data-choice="${esc(a)}" ${draft.members.includes(a)?'checked':''}>${esc(a)}</label>`).join('');
+  $('choices').innerHTML=state.config.servers.map(a=>`<label><input type="checkbox" data-choice="${esc(a)}" ${draft.members.includes(a)?'checked':''}>${esc(serverLabel(a))}</label>`).join('');
   $('editor-error').textContent='';renderMembers();$('editor').showModal();
 }
+$('password-toggle').onclick=()=>openConnection();
+$('connection-cancel').onclick=()=>$('connection').close();
+$('connection').addEventListener('cancel',event=>{if(connecting)event.preventDefault();});
+$('connection').addEventListener('close',()=>{if(!$('connection').open){$('connection-password').value='';connectionID=null;}});
+$('connection-form').onsubmit=async event=>{
+ event.preventDefault();if(connecting)return;connecting=true;
+ const command={type:'connect',id:connectionID,address:$('connection-address').value,port:$('connection-port').value,username:$('connection-user').value,password:$('connection-password').value,remember:$('connection-remember').checked};
+ $('connection-error').textContent='正在验证登录和采集…';
+ document.querySelectorAll('#connection input').forEach(e=>e.disabled=true);
+ $('connection-save').disabled=true;$('connection-cancel').disabled=true;
+ let result;
+ try{result=await window.monitor.action(command);}catch{result={ok:false,error:'连接请求失败，请重试'};}
+ finally{command.password='';connecting=false;document.querySelectorAll('#connection input').forEach(e=>e.disabled=false);$('connection-remember').disabled=!state.canRememberPassword;$('connection-save').disabled=false;$('connection-cancel').disabled=false;}
+ if(result.ok){$('connection-password').value='';$('connection').close();}
+ else $('connection-error').textContent=result.error;
+};
 $('add').onsubmit=async e=>{e.preventDefault();if(await action({type:'add',alias:$('alias').value})) $('alias').value='';};
 $('pause').onclick=()=>action({type:'pause'});$('refresh').onclick=()=>action({type:'refresh'});
 $('overview').onclick=()=>action({type:'overview',collapsed:!state.config.overviewCollapsed});
@@ -117,6 +149,7 @@ document.addEventListener('click',e=>{
   if(b.dataset.member){selectedMember=b.dataset.member;b.focus();selection();}
   if(b.dataset.edit)edit(b.dataset.edit);
   if(b.dataset.dissolve)action({type:'dissolve',id:b.dataset.dissolve});
+  if(b.dataset.connection)openConnection(b.dataset.connection);
   if(b.dataset.remove)action({type:'remove',alias:b.dataset.remove});
 });
 document.addEventListener('change',e=>{if(e.target.dataset.setting){const key=e.target.dataset.setting;const value=key==='coreIDRadix'?Number(e.target.value):e.target.value;e.target.blur();action({type:'display',key,value});}if(e.target.dataset.gpu){e.target.blur();action({type:'gpuSize',alias:e.target.dataset.gpu,size:Number(e.target.value)});}if(e.target.dataset.core){e.target.blur();action({type:'coreSize',alias:e.target.dataset.core,size:Number(e.target.value)});}});
@@ -127,7 +160,7 @@ document.addEventListener('keydown',async e=>{
   if(draft && selectedMember && ['ArrowUp','ArrowDown'].includes(e.key)) {
     e.preventDefault();const i=draft.members.indexOf(selectedMember),j=i+(e.key==='ArrowUp'?-1:1);
     if(i>=0 && j>=0 && j<draft.members.length){[draft.members[i],draft.members[j]]=[draft.members[j],draft.members[i]];renderMembers();document.querySelector('[data-member].selected')?.focus();}
-  } else if(!draft && !$('help').open && !$('settings').open && selectedColumn && !$('layout').hidden && ['ArrowLeft','ArrowRight'].includes(e.key)) {
+  } else if(!draft && !$('help').open && !$('settings').open && !$('connection').open && selectedColumn && !$('layout').hidden && ['ArrowLeft','ArrowRight'].includes(e.key)) {
     e.preventDefault();if(busy)return;busy=true;
     await action({type:'move',id:selectedColumn,step:e.key==='ArrowLeft'?-1:1});busy=false;
     document.querySelector('[data-column].selected')?.focus();

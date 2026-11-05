@@ -14,3 +14,5 @@
 .user-jobs td:last-child,.user-jobs th:last-child{text-align:right}
 .server{container-type:inline-size}
 @container (max-width:500px){.compact .gpu-grid{grid-template-columns:1fr;gap:4px}}
+
+#connection{width:520px}#connection h2{margin-bottom:16px}#connection label{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:14px 0}#connection label:not(.remember) input{width:320px}#connection .remember{justify-content:flex-start}#connection p{font-size:12px}#connection-error{color:var(--orange);white-space:pre-wrap;overflow-wrap:anywhere}.top [data-connection]{font-size:11px;padding:4px 7px}#add{flex-wrap:wrap}

@@ -1,10 +1,20 @@
 const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');
-module.exports=async(window,store)=>{
+module.exports=async(window,store,vault)=>{
  const errors=[];window.webContents.on('console-message',event=>{if(event.level === 'error')errors.push(event.message);});
  const run=fn=>window.webContents.executeJavaScript(`(${fn.toString()})()`);
  async function waitFor(fn){for(let i=0;i<200;i++){if(await run(fn))return;await new Promise(r=>setTimeout(r,50));}throw Error('UI condition timed out: '+fn);}
  await waitFor(()=>document.querySelectorAll('.server').length===4);
  assert.equal(await run(()=>typeof require),'undefined');
+ if(vault.canRemember()) {
+  const id=require('node:crypto').randomUUID(), secret=require('node:crypto').randomUUID();
+  try {
+   vault.put(id,secret,true);
+   const {Vault}=require('../desktop/vault.cjs');
+   assert.equal(new Vault(vault.filename,vault.crypto).get(id),secret);
+   assert.ok(!fs.readFileSync(vault.filename,'utf8').includes(secret));
+   console.log('OS_CREDENTIAL_STORAGE_PASS',process.platform);
+  } finally {vault.remove(id);}
+ } else console.log('OS_CREDENTIAL_STORAGE_UNAVAILABLE_SESSION_ONLY',process.platform);
  assert.equal(await run(()=>document.querySelectorAll('.column').length),3);
  assert.equal(await run(()=>document.querySelectorAll('.column')[0].querySelectorAll('.server').length),2);
  assert.equal(await run(()=>document.querySelector('.gpu-total').textContent),'24.0 GiB');
@@ -59,6 +69,39 @@ module.exports=async(window,store)=>{
  await waitFor(()=>document.querySelector('[data-column]').dataset.column==='pair');
  const {Store}=require('../desktop/store.cjs');
  assert.deepEqual(new Store(store.filename).config,store.config);
+ // Exercise the real password flow through the renderer IPC and a local SSH fixture.
+ const fixture=await require('./ssh-fixture.cjs').sshFixture();
+ try {
+  await run(()=>document.getElementById('password-toggle').click());
+  await waitFor(()=>document.getElementById('connection').open);
+  await window.webContents.executeJavaScript(`(()=>{
+    document.getElementById('connection-address').value='127.0.0.1';
+    document.getElementById('connection-port').value=${fixture.profile.port};
+    document.getElementById('connection-user').value='demo';
+    document.getElementById('connection-password').value='incorrect';
+    document.getElementById('connection-remember').checked=false;
+    document.getElementById('connection-save').click();
+  })()`);
+  await waitFor(()=>document.getElementById('connection-error').textContent.includes('用户名或密码'));
+  assert.equal(store.config.servers.length,4);
+  await window.webContents.executeJavaScript(`(()=>{document.getElementById('connection-password').value=${JSON.stringify(fixture.password)};document.getElementById('connection-save').click();})()`);
+  await waitFor(()=>!document.getElementById('connection').open && document.querySelectorAll('.server').length===5);
+  const direct=store.config.servers.find(id=>id.startsWith('direct-'));
+  assert.equal(vault.session.size,1);
+  assert.ok(direct);assert.equal(store.config.passwordConnections[direct].port,fixture.profile.port);
+  assert.ok(!fs.readFileSync(store.filename,'utf8').includes(fixture.password));
+  const publicState=await run(()=>window.monitor.state());
+  assert.equal(publicState.config.passwordConnections[direct].credentialID,undefined);
+  assert.ok(!JSON.stringify(publicState).includes(fixture.password));
+  await run(()=>document.querySelector('[data-connection]').click());
+  await waitFor(()=>document.getElementById('connection').open);
+  assert.equal(await run(()=>document.getElementById('connection-password').value),'');
+  await run(()=>document.getElementById('connection-cancel').click());
+  await window.webContents.executeJavaScript(`document.querySelector('[data-remove="${direct}"]').click()`);
+  await waitFor(()=>document.querySelectorAll('.server').length===4);
+  assert.equal(store.config.passwordConnections[direct],undefined);
+  assert.equal(vault.session.size,0);
+ } finally {await fixture.close();}
  await run(()=>document.getElementById('overview').click());
  await waitFor(()=>document.body.classList.contains('collapsed'));
  await run(()=>document.getElementById('pause').click());

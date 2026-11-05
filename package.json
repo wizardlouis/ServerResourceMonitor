@@ -1,6 +1,6 @@
 {
   "name": "server-resource-monitor",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Cross-platform SSH server resource monitor",
   "author": "wizardlouis",
   "private": true,
@@ -16,6 +16,7 @@
     "electron-builder": "26.18.0"
   },
   "build": {
+    "npmRebuild": false,
     "appId": "local.shen.ServerResourceMonitor.CrossPlatform",
     "productName": "Server Resource Monitor",
     "artifactName": "ServerResourceMonitor-${version}-${os}-${arch}.${ext}",
@@ -65,5 +66,8 @@
       "category": "Utility",
       "maintainer": "wizardlouis <wizardlouis@users.noreply.github.com>"
     }
+  },
+  "dependencies": {
+    "ssh2": "1.17.0"
   }
 }

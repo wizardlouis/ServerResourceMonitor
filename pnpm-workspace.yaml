@@ -1,0 +1,5 @@
+# Password SSH uses ssh2's supported JavaScript implementation; no native addons.
+allowBuilds:
+  electron: true
+  cpu-features: false
+  ssh2: false
