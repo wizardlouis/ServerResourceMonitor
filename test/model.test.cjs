@@ -26,7 +26,7 @@ test('merge, rename, transfer, detach, dissolve, sorting and boundaries',()=>{
 });
 test('untrusted aliases never become shell options or commands',()=>{
  for(const a of ['-oProxyCommand=bad','x; rm','x\ny','a@host','$(whoami)','a b','']) assert.equal(validAlias(a),false);
- assert.equal(validAlias('a100node1'),true);
+ assert.equal(validAlias('my-server-1'),true);
 });
 test('migration keeps original and persists independent preferences',()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'monitor-test-'));
