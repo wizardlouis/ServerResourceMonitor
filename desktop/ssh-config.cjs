@@ -14,7 +14,7 @@ function read(alias) {
   validateAlias(alias);
   const text = fs.readFileSync(configPath(), 'utf8');
   const resolved = execFileSync(sshExecutable(), ['-G', alias], {encoding:'utf8', timeout:5000, stdio:['ignore','pipe','ignore']});
-  const fields = Object.fromEntries(resolved.split('\n').map(line => line.split(/ (.*)/s).slice(0,2)));
+  const fields = Object.fromEntries(resolved.split(/\r?\n/).filter(Boolean).map(line => line.split(/ (.*)/s).slice(0,2)));
   return {alias, address:fields.hostname, username:fields.user, port:Number(fields.port), revision:digest(text)};
 }
 function writeAtomic(file, text, mode) {
