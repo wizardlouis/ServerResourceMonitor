@@ -53,7 +53,7 @@ function userJobs(s) {
   return `<div class="table-scroll"><table class="user-jobs"><thead><tr><th>用户</th><th>GPU</th><th>显存合计 MiB</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${esc(r.user)}</td><td>${esc(r.gpuLabel)}</td><td>${r.memory===null?'未知（数据不全）':num(r.memory)}</td></tr>`).join('')||'<tr><td colspan="3">暂无可见计算进程</td></tr>'}</tbody></table></div>`;
 }
 function serverHTML(s) {
-  return `<div class="top"><div><h2>${esc(serverLabel(s.alias))}</h2><span class="tiny">${esc(s.hostname||'等待采集')}</span></div><div><span class="status">${s.status==='online'?'● 在线':s.status==='offline'?'● 连接中断':'◌ 连接中'}</span>${state.config.passwordConnections[s.alias]?`<button data-connection="${esc(s.alias)}">连接设置</button>`:''}<button class="remove" data-remove="${esc(s.alias)}" aria-label="移除 ${esc(s.alias)}">×</button></div></div>${s.error?`<div class="error">数据已过期 / 暂不可用\n${esc(s.error)}</div>`:''}${s.cpu_percent==null?'<div class="empty">等待 SSH 采集。首次连接请查看“连接帮助”。</div>':`<div class="metrics"><div><span class="muted">CPU 使用率</span><div class="value">${num(s.cpu_percent,1)}%</div>${bar(s.cpu_percent)}<span class="tiny">${esc(s.cpu_count)} 逻辑核心 · 负载 ${num(s.load?.[0],2)}</span></div><div><span class="muted">内存使用率</span><div class="value">${num(s.memory_percent,1)}%</div>${bar(s.memory_percent,true)}<span class="tiny">${gib(s.memory_used)} / ${gib(s.memory_total)} GiB</span></div></div>${cores(s)}<div class="section-label"><span>GPU · ${(s.gpus||[]).length} 张显卡</span><select data-gpu="${esc(s.alias)}" aria-label="${esc(s.alias)} GPU 显示粒度">${[1,2,4,8].map(n=>`<option value="${n}" ${n===(state.config.gpuGrouping[s.alias]||1)?'selected':''}>${n===1?'单卡':n+' 卡合并'}</option>`).join('')}</select></div>${s.gpu_error?`<div class="error">${esc(s.gpu_error)}</div>`:''}<div class="gpus">${utils.groupGPUs(s.gpus||[],state.config.gpuGrouping[s.alias]).map(gpu).join('')}</div><div class="section-label">近期趋势 · CPU 绿 / GPU 均值 蓝</div>${chart(s.history)}<details data-details="${esc(s.alias)}" ${expanded.has(s.alias)?'open':''}><summary>GPU 计算进程 · ${(s.processes||[]).length}</summary>${state.config.serverPanelTheme==='compact'?userJobs(s):`<div class="table-scroll"><table><thead><tr><th>GPU</th><th>PID</th><th>用户</th><th>进程</th><th>显存 MiB</th></tr></thead><tbody>${(s.processes||[]).map(p=>`<tr><td>${esc(s.gpus.find(g=>g.uuid===p.uuid)?.index??'—')}</td><td>${esc(p.pid)}</td><td>${esc(p.user||'未知')}</td><td class="name" title="${esc(p.name)}">${esc(String(p.name).split(/[\\/]/).at(-1))}</td><td>${num(p.memory)}</td></tr>`).join('')||'<tr><td colspan="5">暂无可见计算进程</td></tr>'}</tbody></table></div>`}</details><div class="foot">最后成功采集 ${s.updated?new Date(s.updated).toLocaleTimeString():'—'}</div>`}`;
+  return `<div class="top"><div><div class="server-heading"><h2>${esc(serverLabel(s.alias))}</h2><button class="server-more" data-more="${esc(s.alias)}" aria-label="${esc(serverLabel(s.alias))} 更多操作" aria-haspopup="menu" title="服务器更多操作">⋯</button></div><span class="tiny">${esc(s.hostname||'等待采集')}</span></div><div><span class="status">${s.monitoringPaused?'Ⅱ 已暂停':s.status==='online'?'● 在线':s.status==='offline'?'● 连接中断':'◌ 连接中'}</span></div></div>${s.error?`<div class="error">数据已过期 / 暂不可用\n${esc(s.error)}</div>`:''}${s.cpu_percent==null?'<div class="empty">等待 SSH 采集。首次连接请查看“连接帮助”。</div>':`<div class="metrics"><div><span class="muted">CPU 使用率</span><div class="value">${num(s.cpu_percent,1)}%</div>${bar(s.cpu_percent)}<span class="tiny">${esc(s.cpu_count)} 逻辑核心 · 负载 ${num(s.load?.[0],2)}</span></div><div><span class="muted">内存使用率</span><div class="value">${num(s.memory_percent,1)}%</div>${bar(s.memory_percent,true)}<span class="tiny">${gib(s.memory_used)} / ${gib(s.memory_total)} GiB</span></div></div>${cores(s)}<div class="section-label"><span>GPU · ${(s.gpus||[]).length} 张显卡</span><select data-gpu="${esc(s.alias)}" aria-label="${esc(s.alias)} GPU 显示粒度">${[1,2,4,8].map(n=>`<option value="${n}" ${n===(state.config.gpuGrouping[s.alias]||1)?'selected':''}>${n===1?'单卡':n+' 卡合并'}</option>`).join('')}</select></div>${s.gpu_error?`<div class="error">${esc(s.gpu_error)}</div>`:''}<div class="gpus">${utils.groupGPUs(s.gpus||[],state.config.gpuGrouping[s.alias]).map(gpu).join('')}</div><div class="section-label">近期趋势 · CPU 绿 / GPU 均值 蓝</div>${chart(s.history)}<details data-details="${esc(s.alias)}" ${expanded.has(s.alias)?'open':''}><summary>GPU 计算进程 · ${(s.processes||[]).length}</summary>${state.config.serverPanelTheme==='compact'?userJobs(s):`<div class="table-scroll"><table><thead><tr><th>GPU</th><th>PID</th><th>用户</th><th>进程</th><th>显存 MiB</th></tr></thead><tbody>${(s.processes||[]).map(p=>`<tr><td>${esc(s.gpus.find(g=>g.uuid===p.uuid)?.index??'—')}</td><td>${esc(p.pid)}</td><td>${esc(p.user||'未知')}</td><td class="name" title="${esc(p.name)}">${esc(String(p.name).split(/[\\/]/).at(-1))}</td><td>${num(p.memory)}</td></tr>`).join('')||'<tr><td colspan="5">暂无可见计算进程</td></tr>'}</tbody></table></div>`}</details><div class="foot">最后成功采集 ${s.updated?new Date(s.updated).toLocaleTimeString():'—'}</div>`}`;
 }
 function selection() {
   document.querySelectorAll('[data-column]').forEach(e=>{const yes=e.dataset.column===selectedColumn;e.classList.toggle('selected',yes);e.setAttribute('aria-pressed',String(yes));});
@@ -154,6 +154,8 @@ document.addEventListener('click',e=>{
   if(b.dataset.edit)edit(b.dataset.edit);
   if(b.dataset.dissolve)action({type:'dissolve',id:b.dataset.dissolve});
   if(b.dataset.connection)openConnection(b.dataset.connection);
+  if(b.dataset.ssh)openSSH(b.dataset.ssh);
+  if(b.dataset.more)openServerMenu(b.dataset.more,b);
   if(b.dataset.remove)action({type:'remove',alias:b.dataset.remove});
 });
 document.addEventListener('change',e=>{if(e.target.dataset.setting){const key=e.target.dataset.setting;const value=key==='coreIDRadix'?Number(e.target.value):e.target.value;e.target.blur();action({type:'display',key,value});}if(e.target.dataset.gpu){e.target.blur();action({type:'gpuSize',alias:e.target.dataset.gpu,size:Number(e.target.value)});}if(e.target.dataset.core){e.target.blur();action({type:'coreSize',alias:e.target.dataset.core,size:Number(e.target.value)});}});
@@ -173,3 +175,74 @@ document.addEventListener('keydown',async e=>{
 });
 window.monitor.subscribe(render);
 window.monitor.state().then(render).catch(e=>{$('message').textContent=e.message;});
+
+let sshEditing = null, sshSaving = false, sshBackup = null;
+async function openSSH(alias) {
+ const result = await window.monitor.action({type:'ssh-read',alias});
+ if(!result.ok) { notice=result.error; render(state); return; }
+ sshEditing=result.connection; sshBackup=null;
+ $('ssh-title').textContent='修改连接信息 · '+alias;
+ $('ssh-address').value=sshEditing.address;
+ $('ssh-port').value=sshEditing.port;
+ $('ssh-user').value=sshEditing.username;
+ $('ssh-status').textContent=''; $('ssh-restore').hidden=true;
+ $('ssh-editor').showModal();
+}
+$('ssh-close').onclick=()=>{if(!sshSaving)$('ssh-editor').close();};
+$('ssh-editor').addEventListener('cancel',e=>{if(sshSaving)e.preventDefault();});
+async function updateSSH(restore=false) {
+ if(sshSaving)return;
+ sshSaving=true;
+ document.querySelectorAll('#ssh-editor input, #ssh-editor button').forEach(e=>e.disabled=true);
+ $('ssh-status').textContent='正在保存并验证连接…';
+ try {
+  const result=await window.monitor.action(restore?{type:'ssh-restore',alias:sshEditing.alias,...sshBackup}:{type:'ssh-save',...sshEditing,address:$('ssh-address').value,port:$('ssh-port').value,username:$('ssh-user').value});
+  if(!result.ok)throw Error(result.error);
+  if(result.backup)sshBackup={backup:result.backup,revision:result.revision};
+  $('ssh-status').textContent=result.verified?'配置已保存，资源采集成功。':'配置已保存，连接验证失败：'+result.error;
+  $('ssh-restore').hidden=restore || !sshBackup;
+  const current=await window.monitor.action({type:'ssh-read',alias:sshEditing.alias});
+  if(current.ok)sshEditing=current.connection;
+ } catch(e) { $('ssh-status').textContent=e.message; }
+ finally {sshSaving=false;document.querySelectorAll('#ssh-editor input, #ssh-editor button').forEach(e=>e.disabled=false);}
+}
+$('ssh-form').onsubmit=e=>{e.preventDefault();updateSSH();};
+$('ssh-restore').onclick=()=>updateSSH(true);
+
+$('fullscreen').onclick=()=>window.monitor.action({type:'fullscreen'});
+$('browse-left').onclick=()=>$('servers').scrollBy({left:-Math.max(440,$('servers').clientWidth*0.8),behavior:'smooth'});
+$('browse-right').onclick=()=>$('servers').scrollBy({left:Math.max(440,$('servers').clientWidth*0.8),behavior:'smooth'});
+
+let menuAlias=null;
+const serverMenu=$('server-menu');
+function openServerMenu(alias,button) {
+ menuAlias=alias;
+ const server=state.servers.find(s=>s.alias===alias);
+ const current=state.config.columns.find(c=>c.members.includes(alias));
+ serverMenu.innerHTML=`<button role="menuitem" data-menu-action="edit">修改连接信息…</button><button role="menuitem" data-menu-action="refresh">立即刷新</button><button role="menuitem" data-menu-action="pause">${server.monitoringPaused?'恢复监控':'暂停监控'}</button><button role="menuitem" data-menu-action="copy">复制连接命令</button><label>移动到分组<select id="server-menu-group" aria-label="移动到分组">${state.config.columns.map(c=>`<option value="${esc(c.id)}" ${c.id===current?.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label><button role="menuitem" class="danger" data-menu-action="remove">从监控列表移除</button>`;
+ const rect=button.getBoundingClientRect();
+ serverMenu.style.left=Math.max(8,Math.min(rect.left,innerWidth-240))+'px';
+ serverMenu.style.top=Math.max(8,Math.min(rect.bottom+6,innerHeight-300))+'px';
+ serverMenu.showPopover();
+ serverMenu.querySelector('button').focus();
+}
+serverMenu.onclick=async event=>{
+ const item=event.target.closest('[data-menu-action]');if(!item)return;
+ const alias=menuAlias,kind=item.dataset.menuAction;
+ serverMenu.hidePopover();
+ if(kind==='edit') {if(state.config.passwordConnections[alias])openConnection(alias);else openSSH(alias);return;}
+ if(kind==='remove'){action({type:'remove',alias});return;}
+ const result=await window.monitor.action({type:'server-'+kind,alias});
+ if(!result.ok){notice=result.error;render(state);}
+};
+serverMenu.onchange=async event=>{
+ if(event.target.id!=='server-menu-group')return;
+ const result=await window.monitor.action({type:'server-group',alias:menuAlias,id:event.target.value});
+ serverMenu.hidePopover();if(!result.ok){notice=result.error;render(state);}
+};
+serverMenu.onkeydown=event=>{
+ if(!['ArrowDown','ArrowUp'].includes(event.key))return;
+ event.preventDefault();const items=[...serverMenu.querySelectorAll('button,select')];
+ const index=items.indexOf(document.activeElement),step=event.key==='ArrowDown'?1:-1;
+ items[(index+step+items.length)%items.length].focus();
+};

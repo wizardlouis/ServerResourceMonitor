@@ -16,3 +16,37 @@
 @container (max-width:500px){.compact .gpu-grid{grid-template-columns:1fr;gap:4px}}
 
 #connection{width:520px}#connection h2{margin-bottom:16px}#connection label{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:14px 0}#connection label:not(.remember) input{width:320px}#connection .remember{justify-content:flex-start}#connection p{font-size:12px}#connection-error{color:var(--orange);white-space:pre-wrap;overflow-wrap:anywhere}.top [data-connection]{font-size:11px;padding:4px 7px}#add{flex-wrap:wrap}
+
+#ssh-form { display: grid; gap: 14px; }
+#ssh-form label { display: grid; gap: 6px; }
+#ssh-form input { width: 100%; box-sizing: border-box; }
+#ssh-status { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Keep scrolling inside the server viewport on narrow portrait displays. */
+html, body { width: 100%; height: 100%; overflow: hidden; }
+main { min-width: 0; min-height: 0; }
+header, .toolbar, .actions { flex-wrap: wrap; }
+header, main > .toolbar, footer { flex-shrink: 0; }
+#servers { min-width: 0; width: 100%; overflow-x: auto; overflow-y: auto; }
+.top { flex-wrap: wrap; }
+.top > div:last-child { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.top [data-ssh] { font-size: 11px; padding: 4px 7px; }
+@media (max-width: 600px) {
+ main { padding: 12px; gap: 10px; }
+ h1 { font-size: 18px; }
+ #summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .column { flex-basis: 100%; min-width: 100%; }
+ .horizontal-groups .server { flex-basis: calc(100vw - 24px); width: calc(100vw - 24px); }
+ .dialog-actions { flex-wrap: wrap; }
+}
+
+.server-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.server-heading h2 { overflow-wrap: anywhere; }
+.server-more { border: 0; background: transparent; padding: 2px 7px; font-size: 24px; line-height: 1; color: var(--muted); flex-shrink: 0; }
+.server-more:hover { color: var(--green); background: #ffffff0a; }
+#server-menu { position: fixed; margin: 0; width: 232px; max-height: calc(100vh - 16px); overflow: auto; padding: 6px; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 30px #0008; }
+#server-menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; padding: 10px; }
+#server-menu button:hover { background: #ffffff10; }
+#server-menu label { display: grid; gap: 6px; padding: 10px; font-size: 12px; color: var(--muted); }
+#server-menu select { width: 100%; }
+#server-menu .danger { color: #ff9b90; border-top: 1px solid var(--line); border-radius: 0; }

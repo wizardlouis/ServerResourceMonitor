@@ -4,6 +4,11 @@ module.exports=async(window,store,vault)=>{
  const run=fn=>window.webContents.executeJavaScript(`(${fn.toString()})()`);
  async function waitFor(fn){for(let i=0;i<200;i++){if(await run(fn))return;await new Promise(r=>setTimeout(r,50));}throw Error('UI condition timed out: '+fn);}
  await waitFor(()=>document.querySelectorAll('.server').length===4);
+ await run(()=>{document.querySelector('[data-more]').click();document.querySelector('[data-menu-action="pause"]').click();});
+ await waitFor(()=>document.querySelector('.status').textContent.includes('已暂停'));
+ await run(()=>{document.querySelector('[data-more]').click();document.querySelector('[data-menu-action="pause"]').click();});
+ await waitFor(()=>!document.querySelector('.status').textContent.includes('已暂停'));
+
  assert.equal(await run(()=>typeof require),'undefined');
  if(vault.canRemember()) {
   const id=require('node:crypto').randomUUID(), secret=require('node:crypto').randomUUID();
@@ -93,11 +98,11 @@ module.exports=async(window,store,vault)=>{
   const publicState=await run(()=>window.monitor.state());
   assert.equal(publicState.config.passwordConnections[direct].credentialID,undefined);
   assert.ok(!JSON.stringify(publicState).includes(fixture.password));
-  await run(()=>document.querySelector('[data-connection]').click());
+  await window.webContents.executeJavaScript(`document.querySelector('[data-more="${direct}"]').click(); document.querySelector('[data-menu-action="edit"]').click()`);
   await waitFor(()=>document.getElementById('connection').open);
   assert.equal(await run(()=>document.getElementById('connection-password').value),'');
   await run(()=>document.getElementById('connection-cancel').click());
-  await window.webContents.executeJavaScript(`document.querySelector('[data-remove="${direct}"]').click()`);
+  await window.webContents.executeJavaScript(`document.querySelector('[data-more="${direct}"]').click(); document.querySelector('[data-menu-action="remove"]').click()`);
   await waitFor(()=>document.querySelectorAll('.server').length===4);
   assert.equal(store.config.passwordConnections[direct],undefined);
   assert.equal(vault.session.size,0);
@@ -113,5 +118,30 @@ module.exports=async(window,store,vault)=>{
  await new Promise(resolve=>setTimeout(resolve,300));
  const dir=path.resolve('smoke-output');fs.mkdirSync(dir,{recursive:true});
  fs.writeFileSync(path.join(dir,`dashboard-${process.platform}-${process.arch}.png`),(await window.webContents.capturePage()).toPNG());
+ window.setBounds({width:540,height:960});
+ await new Promise(resolve=>setTimeout(resolve,250));
+ const portrait=await run(()=>{
+  const viewport=document.getElementById('servers');
+  const copy=viewport.querySelector('.column').cloneNode(true);
+  viewport.append(copy); viewport.append(copy.cloneNode(true));
+  const max=viewport.scrollWidth-viewport.clientWidth;
+  viewport.scrollLeft=max;
+  return {max,left:viewport.scrollLeft,bodyOverflow:document.body.scrollWidth>innerWidth,full:!!document.getElementById('fullscreen')};
+ });
+ assert.ok(portrait.max>0);assert.ok(portrait.left>0);assert.equal(portrait.bodyOverflow,false);assert.equal(portrait.full,true);
+ console.log('PORTRAIT_SCROLL_PASS',portrait);
+ const portraitDisplay=require('electron').screen.getAllDisplays().find(d=>d.bounds.height>d.bounds.width);
+ if(portraitDisplay) {
+  window.setBounds({...portraitDisplay.workArea,width:Math.min(900,portraitDisplay.workArea.width),height:900});
+  await new Promise(resolve=>setTimeout(resolve,300));
+  window.setFullScreen(true);
+  for(let i=0;i<60 && !window.isFullScreen();i++)await new Promise(resolve=>setTimeout(resolve,100));
+  await new Promise(resolve=>setTimeout(resolve,1200));
+  assert.ok(window.isFullScreen());
+  const actual=require('electron').screen.getDisplayMatching(window.getBounds());
+  assert.equal(actual.id,portraitDisplay.id);
+  console.log('PHYSICAL_PORTRAIT_FULLSCREEN_PASS',window.getBounds());
+  window.setFullScreen(false);
+ }
  assert.deepEqual(errors,[]);
 };

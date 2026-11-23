@@ -1,4 +1,4 @@
-const {app, BrowserWindow, ipcMain, Menu, safeStorage} = require('electron');
+const {app, BrowserWindow, ipcMain, Menu, safeStorage, clipboard, screen} = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
@@ -9,14 +9,16 @@ const {Vault}=require('./vault.cjs');
 const {endpoint,title,sameEndpoint,validatePassword}=require('./connections.cjs');
 const {normalize}=require('./model.cjs');
 const {randomUUID}=require('node:crypto');
+const sshConfig = require('./ssh-config.cjs');
 const smoke = process.argv.includes('--smoke-test');
 const packageCheck = process.argv.includes('--package-check');
 const testing = smoke || packageCheck;
 if (testing) app.disableHardwareAcceleration();
 let store, vault, window, timer, rememberAvailable=null, connectionBusy=false, pendingConnection, paused = false, stopped = false;
 const records = new Map(), running = new Map();
+const pausedServers = new Set();
 function snapshot() {
-  return {config: {...store.config,passwordConnections:Object.fromEntries(Object.entries(store.config.passwordConnections).map(([id,p])=>[id,{address:p.address,port:p.port,username:p.username,remember:p.remember}]))}, canRememberPassword: rememberAvailable !== false, servers: store.config.servers.map(alias => ({alias, status: 'loading', history: [], ...records.get(alias)})), paused, error: store.error, imported: store.imported, platform: process.platform, version: app.getVersion()};
+  return {config: {...store.config,passwordConnections:Object.fromEntries(Object.entries(store.config.passwordConnections).map(([id,p])=>[id,{address:p.address,port:p.port,username:p.username,remember:p.remember}]))}, canRememberPassword: rememberAvailable !== false, servers: store.config.servers.map(alias => ({alias, status: 'loading', history: [], ...records.get(alias), monitoringPaused:pausedServers.has(alias)})), paused, error: store.error, imported: store.imported, platform: process.platform, version: app.getVersion()};
 }
 function broadcast() { if (window && !window.isDestroyed()) window.webContents.send('snapshot', snapshot()); }
 function collectorScript() { return fs.readFileSync(app.isPackaged ? path.join(process.resourcesPath, 'collector.py') : path.join(__dirname, '..', 'collector.py'), 'utf8'); }
@@ -54,10 +56,11 @@ async function connectServer(action) {
     throw error;
   } finally {action.password='';pendingConnection=null;connectionBusy=false;}
 }
-function refresh() {
+function refresh(onlyAlias = null) {
   if (paused || stopped || testing) return;
   const script = collectorScript();
   for (const alias of store.config.servers) {
+    if ((onlyAlias && alias !== onlyAlias) || pausedServers.has(alias)) continue;
     if (running.has(alias) || records.get(alias)?.authenticationBlocked) continue;
     const profile=store.config.passwordConnections[alias];
     const started=Date.now();let job;
@@ -92,7 +95,26 @@ else app.whenReady().then(async () => {
     for (const server of fixture.servers) records.set(server.alias, server);
   }
   const page = path.join(__dirname, 'index.html');
-  window = new BrowserWindow({width:1280, height:900, minWidth:760, minHeight:560, backgroundColor:'#0b111b', title:'服务器资源监控器', icon:path.join(__dirname,'..','native','icon.png'), webPreferences:{preload:path.join(__dirname,'preload.cjs'), contextIsolation:true, nodeIntegration:false, sandbox:true}});
+  const windowStatePath=path.join(dir,'window-state.json');
+  let savedWindow={};
+  if(!testing)try{savedWindow=JSON.parse(fs.readFileSync(windowStatePath,'utf8'));}catch{}
+  const displays=screen.getAllDisplays();
+  const display=displays.find(d=>d.id===savedWindow.displayID) || screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const area=display.workArea;
+  const width=Math.min(area.width,Math.max(480,Number(savedWindow.width)||1280));
+  const height=Math.min(area.height,Math.max(420,Number(savedWindow.height)||900));
+  const x=Math.max(area.x,Math.min(Number.isFinite(savedWindow.x)?savedWindow.x:area.x,area.x+area.width-width));
+  const y=Math.max(area.y,Math.min(Number.isFinite(savedWindow.y)?savedWindow.y:area.y,area.y+area.height-height));
+  window = new BrowserWindow({x,y,width,height, minWidth:480, minHeight:420, fullscreenable:true, resizable:true, backgroundColor:'#0b111b', title:'服务器资源监控器', icon:path.join(__dirname,'..','native','icon.png'), webPreferences:{preload:path.join(__dirname,'preload.cjs'), contextIsolation:true, nodeIntegration:false, sandbox:true}});
+  let restoringWindow=true;
+  function saveWindowState() {
+    if(testing || restoringWindow || window.isDestroyed())return;
+    const bounds=window.getNormalBounds();
+    const value={...bounds,displayID:screen.getDisplayMatching(window.getBounds()).id,fullscreen:window.isFullScreen(),maximized:window.isMaximized()};
+    try{fs.writeFileSync(windowStatePath,JSON.stringify(value),{mode:0o600});}catch{}
+  }
+  window.on('close',saveWindowState);
+  for(const event of ['moved','resized','enter-full-screen','leave-full-screen','maximize','unmaximize'])window.on(event,saveWindowState);
   window.webContents.setWindowOpenHandler(() => ({action:'deny'}));
   window.webContents.on('will-navigate', e => e.preventDefault());
   window.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
@@ -101,7 +123,42 @@ else app.whenReady().then(async () => {
   ipcMain.handle('action', async (event, action) => {
     if (!authorized(event)) throw Error('非法请求');
     try {
-      if (action?.type === 'connect') await connectServer(action);
+      if (['server-refresh','server-pause','server-copy','server-group'].includes(action?.type)) {
+        const alias=action.alias;
+        if(!store.config.servers.includes(alias))throw Error('服务器不存在');
+        if(action.type==='server-copy') {
+          const profile=store.config.passwordConnections[alias];
+          const command=profile?`ssh -p ${profile.port} ${profile.username}@${profile.address}`:`ssh ${alias}`;
+          clipboard.writeText(command);return {ok:true};
+        }
+        if(action.type==='server-group') {
+          const target=store.config.columns.find(c=>c.id===action.id);
+          if(!target)throw Error('分组不存在');
+          store.update({type:'edit',id:target.id,name:target.name,members:[...new Set([...target.members,alias])]});
+        } else {
+          const job=running.get(alias);running.delete(alias);job?.cancel();
+          if(action.type==='server-pause') {
+            if(pausedServers.has(alias))pausedServers.delete(alias);else pausedServers.add(alias);
+          } else { pausedServers.delete(alias);const record=records.get(alias);if(record)record.authenticationBlocked=false; }
+        }
+        broadcast();refresh(alias);return {ok:true};
+      } else if (action?.type === 'fullscreen') { window.setFullScreen(!window.isFullScreen()); return {ok:true}; }
+      else if (action?.type === 'ssh-read') {
+        if (!store.config.servers.includes(action.alias)) throw Error('服务器不存在');
+        return {ok:true, connection:sshConfig.read(action.alias)};
+      } else if (action?.type === 'ssh-save' || action?.type === 'ssh-restore') {
+        if (!store.config.servers.includes(action.alias)) throw Error('服务器不存在');
+        const saved = action.type === 'ssh-save' ? sshConfig.save(action) : (sshConfig.restore(action), {});
+        const job = running.get(action.alias);
+        if(job) { running.delete(action.alias); job.cancel(); }
+        records.delete(action.alias);
+        try {
+          const metrics = await collect(action.alias, collectorScript()).promise;
+          records.set(action.alias,{...metrics,status:'online',updated:Date.now(),history:[]});
+          broadcast();
+          return {ok:true,...saved,verified:true};
+        } catch(e) { refresh(); return {ok:true,...saved,verified:false,error:e.message}; }
+      } else if (action?.type === 'connect') await connectServer(action);
       else if (action?.type === 'pause') paused = !paused;
       else if (action?.type !== 'refresh') {
         const removed=action?.type==='remove'?store.config.passwordConnections[action.alias]:null;
@@ -119,6 +176,11 @@ else app.whenReady().then(async () => {
   ]));
   app.on('second-instance', () => { if (window.isMinimized()) window.restore(); window.show(); window.focus(); });
   await window.loadFile(page);
+  if(!testing) {
+    if(savedWindow.fullscreen)window.setFullScreen(true);
+    else if(savedWindow.maximized)window.maximize();
+  }
+  restoringWindow=false;
   refresh(); timer = setInterval(refresh, 5000);
   if (packageCheck) {
     try {
